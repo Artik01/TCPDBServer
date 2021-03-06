@@ -1,0 +1,13 @@
+{
+    "action":"update",
+    "object":"Student",
+    "data":{
+		"id":"3",
+        "class":"11a",
+        "person":{
+            "name":"Andrej",
+            "surname":"Kuzmin",
+            "personalCode":"121203-55644"
+        }
+    }
+}

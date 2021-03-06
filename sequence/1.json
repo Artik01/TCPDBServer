@@ -1,0 +1,18 @@
+{
+    "action":"create",
+    "object":"Teacher",
+    "data":{
+        "subject":"Programming",
+        "salary":2500,
+        "classroom":[
+            "CL-003",
+            "CL-004",
+            "CL-006"
+        ],
+        "person":{
+            "name":"Natalja",
+            "surname":"Popovna",
+            "personalCode":"133641-45622"
+        }
+    }
+}

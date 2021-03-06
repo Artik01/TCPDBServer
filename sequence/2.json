@@ -1,0 +1,12 @@
+{
+    "action":"create",
+    "object":"Student",
+    "data":{
+		"class":"10a",
+        "person":{
+            "name":"Andrej",
+            "surname":"Kuzmin",
+            "personalCode":"121203-55644"
+        }
+    }
+}

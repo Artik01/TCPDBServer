@@ -1,0 +1,7 @@
+<body>
+	<action>delete</action>
+	<object>Student</object>
+	<data>
+		<id>3</id>
+	</data>
+</body>

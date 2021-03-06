@@ -1,0 +1,10 @@
+<body>
+	<action>create</action>
+	<object>Student</object>
+	<data>
+		<class>1a</class>
+		<name>Ivan</name>
+		<surname>Valodko</surname>
+		<personalCode>210213-26637</personalCode>
+	</data>
+</body>

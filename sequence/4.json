@@ -1,0 +1,14 @@
+{
+    "action":"create",
+    "object":"Staff",
+    "data":{
+		"salary":1000,
+		"classroom":"CL-010",
+		"phone":"25521441",
+        "person":{
+            "name":"Aleksej",
+            "surname":"Havar",
+            "personalCode":"140391-95552"
+        }
+    }
+}
