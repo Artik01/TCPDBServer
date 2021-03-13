@@ -175,6 +175,7 @@ func (action UpdateTeacher) Process(db *DB) string {
 	GlobalMutex <- 1
 	id := action.T.GetId()
 	<-((*db)[db.GetIndex(id)]).(Teacher).mutex
+	action.T.mutex = make(chan int, 1)
 	(*db)[db.GetIndex(id)] = action.T
 	((*db)[db.GetIndex(id)]).(Teacher).mutex <- 1
 	return "Teacher updated successfully\n"
@@ -316,6 +317,7 @@ func (action UpdateStudent) Process(db *DB) string {
 	GlobalMutex <- 1
 	id := action.S.GetId()
 	<-((*db)[db.GetIndex(id)]).(Student).mutex
+	action.S.mutex = make(chan int, 1)
 	(*db)[db.GetIndex(id)] = action.S
 	((*db)[db.GetIndex(id)]).(Student).mutex <- 1
 	return "Student updated successfully\n"
@@ -457,6 +459,7 @@ func (action UpdateStaff) Process(db *DB) string {
 	GlobalMutex <- 1
 	id := action.S.GetId()
 	<-((*db)[db.GetIndex(id)]).(Staff).mutex
+	action.S.mutex = make(chan int, 1)
 	(*db)[db.GetIndex(id)] = action.S
 	((*db)[db.GetIndex(id)]).(Staff).mutex <- 1
 	return "Staff updated successfully\n"
