@@ -10,7 +10,7 @@ import (
 
 var db DB
 
-var Ch chan int = make(chan int, 1)
+var GlobalMutex chan int = make(chan int, 1)
 
 func main() {
 	ln, err := net.Listen("tcp", "127.0.0.1:10257")
@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 	defer ln.Close()
-	Ch <- 1
+	GlobalMutex <- 1
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -38,14 +38,16 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 		
-		<- Ch
-		db.UseAction(buf[:n])
+		res := db.UseAction(buf[:n])
+		
+		// DB printing just for tracking
 		fmt.Println("\nDB after Action")
 		for _, p := range db {
 			p.Print()
 		}
 		fmt.Println()
-		Ch <- 1
+		
+		conn.Write([]byte(res))
 	}
 }
 
@@ -57,6 +59,7 @@ type (
 	}
 
 	Teacher struct {
+		mutex	  chan int
 		ID        string   `json:"id" xml:"id"`
 		Subject   string   `json:"subject" xml:"subject"`
 		Salary    float64  `json:"salary" xml:"salary"`
@@ -65,12 +68,14 @@ type (
 	}
 
 	Student struct {
+		mutex  chan int
 		ID     string `json:"id" xml:"id"`
 		Class  string `json:"class" xml:"class"`
 		Person `json:"person"`
 	}
 
 	Staff struct {
+		mutex	  chan int
 		ID        string  `json:"id" xml:"id"`
 		Salary    float64 `json:"salary" xml:"salary"`
 		Classroom string  `json:"classroom" xml:"classroom"`
@@ -89,7 +94,7 @@ type Action struct {
 type DefinedAction interface {
 	GetFromJSON([]byte)
 	GetFromXML([]byte)
-	Process(db *DB)
+	Process(db *DB) string
 }
 type GeneralObject interface {
 	GetCreateAction() DefinedAction
@@ -132,10 +137,15 @@ func (action *CreateTeacher) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action CreateTeacher) Process(db *DB) {
+func (action CreateTeacher) Process(db *DB) string {
+	<-GlobalMutex
 	action.T.ID=fmt.Sprint(FirstFreeId)
+	action.T.mutex = make(chan int, 1)
+	action.T.mutex <- 1
 	FirstFreeId++
 	*db = append(*db, action.T)
+	GlobalMutex <- 1
+	return "Teacher created successfully\n"
 }
 
 func (t Teacher) GetUpdateAction() DefinedAction {
@@ -160,9 +170,14 @@ func (action *UpdateTeacher) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action UpdateTeacher) Process(db *DB) {
+func (action UpdateTeacher) Process(db *DB) string {
+	<-GlobalMutex
+	GlobalMutex <- 1
 	id := action.T.GetId()
+	<-((*db)[db.GetIndex(id)]).(Teacher).mutex
 	(*db)[db.GetIndex(id)] = action.T
+	((*db)[db.GetIndex(id)]).(Teacher).mutex <- 1
+	return "Teacher updated successfully\n"
 }
 
 func (t Teacher) GetReadAction() DefinedAction {
@@ -189,8 +204,13 @@ func (action *ReadTeacher) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action ReadTeacher) Process(db *DB) {
-	(*db)[db.GetIndex(action.Data.ID)].Print()
+func (action ReadTeacher) Process(db *DB) string {
+	<-GlobalMutex
+	GlobalMutex <- 1
+	<-((*db)[db.GetIndex(action.Data.ID)]).(Teacher).mutex
+	t := ((*db)[db.GetIndex(action.Data.ID)]).(Teacher)
+	((*db)[db.GetIndex(action.Data.ID)]).(Teacher).mutex <- 1
+	return fmt.Sprintf("ID:%s\tName:%s\tSurname:%s\tSalary:%.2f\tSubject:%s\tClassroom:%v\n", t.ID, t.Name, t.Surname, t.Salary, t.Subject, t.Classroom)
 }
 
 func (t Teacher) GetDeleteAction() DefinedAction {
@@ -217,12 +237,15 @@ func (action *DeleteTeacher) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action DeleteTeacher) Process(db *DB) {
+func (action DeleteTeacher) Process(db *DB) string {
+	<-GlobalMutex
 	for i, p := range *db {
 		if p.GetId() == action.Data.ID {
 			*db = append((*db)[:i], (*db)[i+1:]...)
 		}
 	}
+	GlobalMutex <- 1
+	return "Teacher deleted successfully\n"
 }
 func (t Teacher) Print() {
 	fmt.Printf("ID:%s\tName:%s\tSurname:%s\tSalary:%.2f\tSubject:%s\tClassroom:%v\n", t.ID, t.Name, t.Surname, t.Salary, t.Subject, t.Classroom)
@@ -255,10 +278,15 @@ func (action *CreateStudent) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action CreateStudent) Process(db *DB) {
+func (action CreateStudent) Process(db *DB) string {
+	<-GlobalMutex
 	action.S.ID=fmt.Sprint(FirstFreeId)
+	action.S.mutex = make(chan int, 1)
+	action.S.mutex <- 1
 	FirstFreeId++
 	*db = append(*db, action.S)
+	GlobalMutex <- 1
+	return "Student created successfully\n"
 }
 
 func (s Student) GetUpdateAction() DefinedAction {
@@ -283,9 +311,14 @@ func (action *UpdateStudent) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action UpdateStudent) Process(db *DB) {
+func (action UpdateStudent) Process(db *DB) string {
+	<-GlobalMutex
+	GlobalMutex <- 1
 	id := action.S.GetId()
+	<-((*db)[db.GetIndex(id)]).(Student).mutex
 	(*db)[db.GetIndex(id)] = action.S
+	((*db)[db.GetIndex(id)]).(Student).mutex <- 1
+	return "Student updated successfully\n"
 }
 
 func (s Student) GetReadAction() DefinedAction {
@@ -312,8 +345,13 @@ func (action *ReadStudent) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action ReadStudent) Process(db *DB) {
-	(*db)[db.GetIndex(action.Data.ID)].Print()
+func (action ReadStudent) Process(db *DB) string {
+	<-GlobalMutex
+	GlobalMutex <- 1
+	<-((*db)[db.GetIndex(action.Data.ID)]).(Student).mutex
+	s := ((*db)[db.GetIndex(action.Data.ID)]).(Student)
+	((*db)[db.GetIndex(action.Data.ID)]).(Student).mutex <- 1
+	return fmt.Sprintf("ID:%s\tName:%s\tSurname:%s\tClass:%s\n", s.ID, s.Name, s.Surname, s.Class)
 }
 
 func (s Student) GetDeleteAction() DefinedAction {
@@ -340,12 +378,15 @@ func (action *DeleteStudent) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action DeleteStudent) Process(db *DB) {
+func (action DeleteStudent) Process(db *DB) string {
+	<-GlobalMutex
 	for i, p := range *db {
 		if p.GetId() == action.Data.ID {
 			*db = append((*db)[:i], (*db)[i+1:]...)
 		}
 	}
+	GlobalMutex <- 1
+	return "Student deleted successfully\n"
 }
 func (s Student) Print() {
 	fmt.Printf("ID:%s\tName:%s\tSurname:%s\tClass:%s\n", s.ID, s.Name, s.Surname, s.Class)
@@ -378,10 +419,15 @@ func (action *CreateStaff) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action CreateStaff) Process(db *DB) {
+func (action CreateStaff) Process(db *DB) string {
+	<-GlobalMutex
 	action.S.ID=fmt.Sprint(FirstFreeId)
+	action.S.mutex = make(chan int, 1)
+	action.S.mutex <- 1
 	FirstFreeId++
 	*db = append(*db, action.S)
+	GlobalMutex <- 1
+	return "Staff created successfully\n"
 }
 
 func (s Staff) GetUpdateAction() DefinedAction {
@@ -406,9 +452,14 @@ func (action *UpdateStaff) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action UpdateStaff) Process(db *DB) {
+func (action UpdateStaff) Process(db *DB) string {
+	<-GlobalMutex
+	GlobalMutex <- 1
 	id := action.S.GetId()
+	<-((*db)[db.GetIndex(id)]).(Staff).mutex
 	(*db)[db.GetIndex(id)] = action.S
+	((*db)[db.GetIndex(id)]).(Staff).mutex <- 1
+	return "Staff updated successfully\n"
 }
 
 func (s Staff) GetReadAction() DefinedAction {
@@ -435,8 +486,13 @@ func (action *ReadStaff) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action ReadStaff) Process(db *DB) {
-	(*db)[db.GetIndex(action.Data.ID)].Print()
+func (action ReadStaff) Process(db *DB) string {
+	<-GlobalMutex
+	GlobalMutex <- 1
+	<-((*db)[db.GetIndex(action.Data.ID)]).(Staff).mutex
+	s := ((*db)[db.GetIndex(action.Data.ID)]).(Staff)
+	((*db)[db.GetIndex(action.Data.ID)]).(Staff).mutex <- 1
+	return fmt.Sprintf("ID:%s\tName:%s\tSurname:%s\tSalary:%.2f\tClassroom:%s\tPhone:%s\n", s.ID, s.Name, s.Surname, s.Salary, s.Classroom, s.Phone)
 }
 
 func (s Staff) GetDeleteAction() DefinedAction {
@@ -463,12 +519,15 @@ func (action *DeleteStaff) GetFromXML(rawData []byte) {
 		return
 	}
 }
-func (action DeleteStaff) Process(db *DB) {
+func (action DeleteStaff) Process(db *DB) string {
+	<-GlobalMutex
 	for i, p := range *db {
 		if p.GetId() == action.Data.ID {
 			*db = append((*db)[:i], (*db)[i+1:]...)
 		}
 	}
+	GlobalMutex <- 1
+	return "Staff deleted successfully\n"
 }
 func (s Staff) Print() {
 	fmt.Printf("ID:%s\tName:%s\tSurname:%s\tSalary:%.2f\tClassroom:%s\tPhone:%s\n", s.ID, s.Name, s.Surname, s.Salary, s.Classroom, s.Phone)
@@ -478,15 +537,14 @@ func (s Staff) GetId() string {
 	return s.ID
 }
 
-func (db *DB) UseAction(data []byte) {
+func (db *DB) UseAction(data []byte) string {
 	var FType string
 	if strings.HasPrefix(string(data), "{") {
 		FType="json"
 	} else if strings.HasPrefix(string(data), "<") {
 		FType="xml"
 	} else {
-		fmt.Println("Unsuported file type")
-		return
+		return "Unsuported file type\n"
 	}
 
 	var act Action
@@ -497,8 +555,7 @@ func (db *DB) UseAction(data []byte) {
 		err = xml.Unmarshal(data, &act)
 	}
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Sprintln(err)
 	}
 
 	var obj GeneralObject
@@ -510,8 +567,7 @@ func (db *DB) UseAction(data []byte) {
 		case "Staff":
 			obj = &Staff{}
 		default:
-			fmt.Println("unknown object",act.ObjName)
-			return
+			return fmt.Sprintln("unknown object",act.ObjName)
 	}
 	var toDo DefinedAction
 	
@@ -525,8 +581,7 @@ func (db *DB) UseAction(data []byte) {
 		case "delete":
 			toDo = obj.GetDeleteAction()
 		default:
-			fmt.Println("unknown action",act.Action)
-			return
+			return fmt.Sprintln("unknown action",act.Action)
 	}
 	
 	if FType == "json" {
@@ -560,7 +615,7 @@ func (db *DB) UseAction(data []byte) {
 	fmt.Println("Action:")
 	fmt.Printf("%s %s"+str, act.Action, act.ObjName)
 	fmt.Println("Result:")
-	toDo.Process(db)
+	return toDo.Process(db)
 }
 
 func min(a, b int) int {

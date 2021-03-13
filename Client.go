@@ -43,5 +43,14 @@ func main() {
 			conn.Close()
 			return
 		}
+		
+		buff := make([]byte, 2000)
+		n, err := conn.Read(buff)
+		if err != nil {
+			conn.Close()
+			return
+		}
+		
+		fmt.Print(string(buff[:n]))
 	}
 }
